@@ -16,6 +16,7 @@
 #include <BLE2902.h>
 // ----- Bluetooth Header -----//
 
+// ----- Preference -----//
 #include <Preferences.h>
 
 #define PREFS_NAME "saved_data"
@@ -23,9 +24,13 @@
 #define PREFS_AP "AP"
 #define PREFS_PW "PW"
 #define PREFS_SI "SI"
+// ----- Preference -----//
+
+#include "led_indicator.h"
 
 #define PIN_AP_SET 0
-#define PIN_NEOPIXEL 2
+#define PIN_NEOPIXEL 13
+#define LED_BUILTIN 2
 uint8_t pin_ap_set_prev;
 
 #define NUMPIXELS      8 // 네오픽셀 LED 수
@@ -38,6 +43,17 @@ String ap;
 String pw;
 String si;
 
+
+hw_timer_t * timer = NULL;
+volatile SemaphoreHandle_t timerSemaphore;
+portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
+
+enum {
+  LED_NONE,
+  LED_WIFI,
+  LED_BT,
+  LED_WIFI_NOT_CONNECTED,
+};
 
 //String sido = "서울"; // 서울, 부산, 대구, 인천, 광주, 대전, 울산, 경기, 강원, 충북, 충남, 전북, 전남, 경북, 경남, 제주, 세종 중 입력
 String key = "XqmG8pqiJv2w7Tp8egf1FDxpwWe4a4RKHq4nCaCyjxE1QvoPY8VoBF0oY6Gx9TJ2vQ%2BaTZVBk0RTdjXZsmMx5Q%3D%3DXqmG8pqiJv2w7Tp8egf1FDxpwWe4a4RKHq4nCaCyjxE1QvoPY8VoBF0oY6Gx9TJ2vQ%2BaTZVBk0RTdjXZsmMx5Q%3D%3D";
@@ -60,6 +76,18 @@ uint8_t txValue = 0;
 #define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 // ----- Bluetooth Variables -----//
 
+LedIndicator ledIndicator;
+
+void IRAM_ATTR onTimer(){
+  // Increment the counter and set the time of ISR
+  portENTER_CRITICAL_ISR(&timerMux);
+  digitalWrite(LED_BUILTIN, !ledIndicator.process());
+  portEXIT_CRITICAL_ISR(&timerMux);
+  // Give a semaphore that we can check in the loop
+  xSemaphoreGiveFromISR(timerSemaphore, NULL);
+  // It is safe to use digitalRead/Write here if you want to toggle an output
+}
+
 
 void setup()
 {
@@ -68,6 +96,7 @@ void setup()
   Serial.println("Start");
 
   pinMode(PIN_AP_SET, INPUT_PULLUP);
+  pinMode(LED_BUILTIN, OUTPUT);
 
   // 모드 확인
   prefs.begin(PREFS_NAME);
@@ -85,10 +114,12 @@ void setup()
   pixels.show();
 
   if (mode==0) {
+    ledIndicator.SetBlinkCount(LED_WIFI_NOT_CONNECTED);
     // WiFi 모드
     setupWifi();
   }
   else if (mode==1) {
+    ledIndicator.SetBlinkCount(LED_BT);
     setupBT();
   }
   else {
@@ -98,6 +129,23 @@ void setup()
     prefs.putChar(PREFS_MODE, mode);
     ESP.restart();
   }
+
+  // ----- Start Timer -----//
+  // Create semaphore to inform us when the timer has fired
+  timerSemaphore = xSemaphoreCreateBinary();
+  // Use 1st timer of 4 (counted from zero).
+  // Set 80 divider for prescaler (see ESP32 Technical Reference Manual for more
+  // info).
+  timer = timerBegin(0, 80, true);
+  // Attach onTimer function to our timer.
+  timerAttachInterrupt(timer, &onTimer, true);
+  // Set alarm to call onTimer function every 200 microsecond (value in microseconds).
+  // Repeat the alarm (third parameter)
+  timerAlarmWrite(timer, 200000, true);
+  // Start an alarm
+  timerAlarmEnable(timer);
+  // ----- Start Timer -----//
+
 }
 
 void loop() {
@@ -110,6 +158,8 @@ void loop() {
   else if (mode == 1) {
     loopBT();
   }
+  
+  delay(100);
 }
 
 float getNumber(String str, String tag, int from) {
@@ -178,22 +228,23 @@ void setupWifi() {
   // 와이파이 접속
   WiFi.begin(ap.c_str(), pw.c_str()); // 공유기 이름과 비밀번호
 
-  Serial.print("Connecting");
-  while (WiFi.status() != WL_CONNECTED) // 와이파이 접속하는 동안 "." 출력
-  {
-    delay(500);
-    Serial.print(".");
-    CheckModeChange();
-  }
-  Serial.println();
-
-  Serial.print("Connected, IP address: ");
-  Serial.println(WiFi.localIP()); // 접속된 와이파이 주소 출력  
+  Serial.printf("WiFi Connecting to %s with %s\n", ap.c_str(), pw.c_str());
+//  while (WiFi.status() != WL_CONNECTED) // 와이파이 접속하는 동안 "." 출력
+//  {
+//    delay(500);
+//    Serial.print(".");
+//    CheckModeChange();
+//  }
+//  Serial.println();
+//
+//  Serial.print("Connected, IP address: ");
+//  Serial.println(WiFi.localIP()); // 접속된 와이파이 주소 출력  
 }
 
 void loopWifi() {
   if (WiFi.status() == WL_CONNECTED) // 와이파이가 접속되어 있는 경우
   {
+    ledIndicator.SetBlinkCount(LED_WIFI);
     WiFiClient client; // 와이파이 클라이언트 객체
     HTTPClient http; // HTTP 클라이언트 객체
     http.setTimeout(3000);
@@ -223,6 +274,10 @@ void loopWifi() {
     Serial.println(score); // 시리얼로 출력
     setLEDColor(score); // 점수에 따라 LED 색상 출력
     delay(5000);
+  }
+  else {
+    delay(500);
+    Serial.print(".");
   }
 }
 
@@ -356,7 +411,7 @@ void setupBT () {
 
   // Start advertising
   pServer->getAdvertising()->start();
-  Serial.println("Waiting a client connection to notify...");
+  Serial.println("[BT]Waiting a client connection to notify...");
 }
 
 void loopBT () {
