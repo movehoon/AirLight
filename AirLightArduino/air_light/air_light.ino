@@ -81,7 +81,7 @@ LedIndicator ledIndicator;
 void IRAM_ATTR onTimer(){
   // Increment the counter and set the time of ISR
   portENTER_CRITICAL_ISR(&timerMux);
-  digitalWrite(LED_BUILTIN, !ledIndicator.process());
+  digitalWrite(LED_BUILTIN, ledIndicator.process());
   portEXIT_CRITICAL_ISR(&timerMux);
   // Give a semaphore that we can check in the loop
   xSemaphoreGiveFromISR(timerSemaphore, NULL);
