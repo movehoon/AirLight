@@ -1500,13 +1500,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 1018687656}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7591ee4d8bdfe48faa0f24b4fccf8cf0, type: 3}
+  m_Script: {fileID: 11500000, guid: 07b49ade47ae849feb8e4e65d68c2890, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   DeviceName: AIR_LIGHT
-  ServiceUUID: 6E400001-B5A3-F393-E0A9-E50E24DCCA9E
-  SubscribeCharacteristic: 6E400003-B5A3-F393-E0A9-E50E24DCCA9E
-  WriteCharacteristic: 6E400002-B5A3-F393-E0A9-E50E24DCCA9E
+  ServiceUUID: 6e400001-b5a3-f393-e0a9-e50e24dcca9e
+  SubscribeCharacteristic: 6e400003-b5a3-f393-e0a9-e50e24dcca9e
+  WriteCharacteristic: 6e400002-b5a3-f393-e0a9-e50e24dcca9e
 --- !u!4 &1018687658
 Transform:
   m_ObjectHideFlags: 0
@@ -2119,7 +2119,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1580755779}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ead6bcfdccae24412b99bc7f869addc6, type: 3}
+  m_Script: {fileID: 11500000, guid: 0cc4b3bce352b45dcbcff2767a54ee9b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   btnConnect: {fileID: 1435436130}
